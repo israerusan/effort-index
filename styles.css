@@ -153,3 +153,222 @@
 .effort-index-confirm-body {
 	line-height: 1.5;
 }
+
+/* --- mode bar (All / By topic / Orphaned) --------------------------------------------- */
+
+.effort-index-modes {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 12px;
+}
+
+.effort-index-mode {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background-color: var(--background-primary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+}
+
+.effort-index-mode.is-active {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.effort-index-mode-lock {
+	padding: 0 4px;
+	border-radius: var(--radius-s);
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-bold);
+	text-transform: uppercase;
+}
+
+/* --- the semantic reports ------------------------------------------------------------- */
+
+.effort-index-explain p,
+.effort-index-progress,
+.effort-index-degraded {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.5;
+}
+
+.effort-index-note {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+}
+
+.effort-index-rerun,
+.effort-index-install {
+	margin-bottom: 12px;
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+}
+
+.effort-index-cluster {
+	margin-bottom: 16px;
+}
+
+.effort-index-cluster-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 6px;
+	padding-bottom: 2px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.effort-index-cluster-label {
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+}
+
+.effort-index-cluster-total {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+/* --- Pro gating in the settings tab ---------------------------------------------------- */
+
+.effort-index-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.5;
+}
+
+.effort-index-pro-pill {
+	margin-left: 6px;
+	padding: 0 5px;
+	border-radius: var(--radius-s);
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-bold);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.effort-index-setting-locked {
+	opacity: 0.75;
+}
+
+/* The honest replacement for a purchase button while there is no checkout to send anyone to. */
+.effort-index-pro-pending {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-style: italic;
+	line-height: 1.5;
+}
+
+/* --- semantic engine ------------------------------------------------------------------- */
+
+.effort-index-engine p {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	line-height: 1.5;
+}
+
+.effort-index-engine-progress:empty {
+	display: none;
+}
+
+.effort-index-engine-progress {
+	padding: 8px 10px;
+	border-radius: var(--radius-s);
+	background-color: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.effort-index-engine-log pre {
+	max-height: 50vh;
+	overflow: auto;
+	padding: 8px;
+	border-radius: var(--radius-s);
+	background-color: var(--background-secondary);
+	font-size: var(--font-ui-smaller);
+	user-select: text;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.effort-index-engine-log-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.effort-index-engine-log-actions {
+	display: flex;
+	justify-content: flex-end;
+	padding-top: 8px;
+}
+
+/* --- the engine consent modal ------------------------------------------------------------
+ *
+ * Required by the vendored shared/engine/EngineInstallModal.ts. The class names are suite-wide
+ * (`second-read-engine-*`), not add-on-scoped, because the modal is ONE shared component: five
+ * add-ons vendor the same file and it must look identical in every one of them. Do not rename
+ * these to `effort-index-*`.
+ * --------------------------------------------------------------------------------------- */
+
+.second-read-engine-modal .second-read-engine-lede {
+	font-weight: var(--font-semibold);
+}
+
+.second-read-engine-facts {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 4px 12px;
+	margin: 12px 0;
+	padding: 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background-color: var(--background-secondary);
+}
+
+.second-read-engine-fact {
+	display: contents;
+}
+
+.second-read-engine-fact-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.second-read-engine-fact-value {
+	min-width: 0;
+}
+
+.second-read-engine-fact-text {
+	display: block;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	overflow-wrap: anywhere;
+	user-select: text;
+}
+
+.second-read-engine-fact-note {
+	display: block;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.second-read-engine-explainer,
+.second-read-engine-source {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}

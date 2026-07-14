@@ -1,6 +1,9 @@
 import { MarkdownView, Notice, normalizePath } from "obsidian";
 import type EffortIndexPlugin from "./main";
 import { ConfirmModal } from "./ui/ConfirmModal";
+import { EffortView, VIEW_TYPE_EFFORT, type EffortMode } from "./ui/EffortView";
+import { FEATURES } from "./core/features.mjs";
+import { isFeatureEnabled } from "./shared/featureGates.mjs";
 import {
 	formatColdness,
 	formatDuration,
@@ -60,6 +63,50 @@ export function registerCommands(plugin: EffortIndexPlugin): void {
 			}).open();
 		},
 	});
+
+	// --- Pro (semantic) ---------------------------------------------------------------
+	//
+	// Gated on Pro AND on an engine CLIENT being available (desktop) — but deliberately NOT on
+	// the engine being INSTALLED. A Pro user with no engine yet must be able to reach the
+	// feature, because reaching it is what shows them the install offer; hiding the command
+	// would leave them holding a key for a feature they cannot find the "on" switch for.
+	//
+	// A free user sees neither command: a palette entry whose only behaviour is to open a sales
+	// pitch is an entry that should not be in the palette. The Pro surface they CAN see is the
+	// locked tab in the view and the card in settings, both of which explain themselves.
+
+	plugin.addCommand({
+		id: "find-orphaned-investment",
+		name: "Find expensive notes nobody reused",
+		checkCallback: (checking) => {
+			if (!isFeatureEnabled(FEATURES, "orphanedInvestment", plugin.settings.isPro)) return false;
+			if (!plugin.engineAvailable()) return false;
+			if (checking) return true;
+			void openMode(plugin, "orphans");
+			return true;
+		},
+	});
+
+	plugin.addCommand({
+		id: "group-effort-by-topic",
+		name: "Group the effort report by topic",
+		checkCallback: (checking) => {
+			if (!isFeatureEnabled(FEATURES, "effortClusters", plugin.settings.isPro)) return false;
+			if (!plugin.engineAvailable()) return false;
+			if (checking) return true;
+			void openMode(plugin, "topics");
+			return true;
+		},
+	});
+}
+
+/** Open the panel and put it into a Pro mode. The view owns the degradation copy from there. */
+async function openMode(plugin: EffortIndexPlugin, mode: EffortMode): Promise<void> {
+	await plugin.activateView();
+	for (const leaf of plugin.app.workspace.getLeavesOfType(VIEW_TYPE_EFFORT)) {
+		const view = leaf.view;
+		if (view instanceof EffortView) await view.show(mode);
+	}
 }
 
 /** The one-note answer: what has this note actually cost, including the burst in progress. */

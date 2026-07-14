@@ -202,6 +202,8 @@ export class SliderComponent {
 export class TextComponent {
 	value = "";
 	placeholder = "";
+	/** The real component exposes the <input>/<textarea>; the license row styles it. */
+	inputEl = new FakeEl("input") as FakeEl & { rows: number };
 	private handler: ((value: string) => unknown) | null = null;
 	setPlaceholder(text: string): this {
 		this.placeholder = text;
@@ -221,11 +223,15 @@ export class TextComponent {
 	}
 }
 
+export class TextAreaComponent extends TextComponent {}
+
 export class ButtonComponent {
 	label = "";
 	icon = "";
 	tooltip = "";
 	disabled = false;
+	cta = false;
+	warning = false;
 	private handler: (() => unknown) | null = null;
 	setButtonText(text: string): this {
 		this.label = text;
@@ -237,6 +243,14 @@ export class ButtonComponent {
 	}
 	setTooltip(tooltip: string): this {
 		this.tooltip = tooltip;
+		return this;
+	}
+	setCta(): this {
+		this.cta = true;
+		return this;
+	}
+	setWarning(): this {
+		this.warning = true;
 		return this;
 	}
 	setDisabled(disabled: boolean): this {
@@ -268,6 +282,7 @@ export class Setting {
 	toggles: ToggleComponent[] = [];
 	sliders: SliderComponent[] = [];
 	texts: TextComponent[] = [];
+	textAreas: TextAreaComponent[] = [];
 	buttons: ButtonComponent[] = [];
 	extraButtons: ButtonComponent[] = [];
 
@@ -311,6 +326,12 @@ export class Setting {
 		cb(text);
 		return this;
 	}
+	addTextArea(cb: (text: TextAreaComponent) => unknown): this {
+		const text = new TextAreaComponent();
+		this.textAreas.push(text);
+		cb(text);
+		return this;
+	}
 	addButton(cb: (button: ButtonComponent) => unknown): this {
 		const button = new ButtonComponent();
 		this.buttons.push(button);
@@ -325,7 +346,7 @@ export class Setting {
 	}
 	/** Every control on this row — a Pro row for a free user must have none. */
 	controls(): Array<ToggleComponent | SliderComponent | TextComponent | ButtonComponent> {
-		return [...this.toggles, ...this.sliders, ...this.texts, ...this.buttons];
+		return [...this.toggles, ...this.sliders, ...this.texts, ...this.textAreas, ...this.buttons];
 	}
 }
 
@@ -386,13 +407,32 @@ export class MarkdownView extends ItemView {}
 export const notices: string[] = [];
 
 export class Notice {
-	constructor(message: string) {
+	message: string;
+	hidden = false;
+	constructor(message: string, _timeout?: number) {
+		this.message = message;
 		notices.push(message);
+	}
+	/** The install flow rewrites one Notice as it goes, rather than stacking forty of them. */
+	setMessage(message: string): this {
+		this.message = message;
+		notices.push(message);
+		return this;
+	}
+	hide(): void {
+		this.hidden = true;
 	}
 }
 
 export const apiVersion = "1.5.0";
 export const Platform = { isMacOS: false, isIosApp: false, isDesktop: true };
+
+/** Only ever used with `instanceof` (EngineHost, to find the vault's real path on disk). */
+export class FileSystemAdapter {
+	getBasePath(): string {
+		return "/vault";
+	}
+}
 
 // --- vault primitives ---------------------------------------------------------------------
 //
@@ -409,6 +449,10 @@ export class TAbstractFile {
 export class TFile extends TAbstractFile {
 	extension = "md";
 	basename = "";
+	/** Real TFiles carry this, and the engine sends `stat.mtime` with every upsert. Leaving it
+	 *  off made every upsert throw a TypeError INSIDE the engine index's try/catch — which is to
+	 *  say: the vault silently never got indexed, and the test still went green. */
+	stat = { ctime: 0, mtime: 1_700_000_000_000, size: 100 };
 	constructor(path = "") {
 		super();
 		this.path = path;

@@ -1,19 +1,35 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { Notice, PluginSettingTab, Setting } from "obsidian";
 import type EffortIndexPlugin from "../main";
 import { createExternalLink } from "./links";
 import { ConfirmModal } from "./ConfirmModal";
+import { EngineLogModal } from "./EngineLogModal";
 import { FEATURES } from "../core/features.mjs";
 import { proFeatureKeys } from "../shared/featureGates.mjs";
+import { ENGINE_RELEASE_PINNED, ENGINE_VERSION } from "../shared/engine/engineRelease.mjs";
+import { MAX_SCAN_LIMIT, MIN_SCAN_LIMIT } from "../settings";
 import {
+	DOWNLOAD_SIZE_LABEL,
+	canInstallEngine,
+	engineInstallBlockedReason,
+	offerEngineInstall,
+} from "./engineInstall";
+import {
+	CHECKOUT_OPEN,
 	PRO_NAME,
 	PRO_PRICE_LABEL,
 	PRO_TAGLINE,
 	PRO_UNLOCK_SUMMARY,
+	PURCHASE_PENDING_COPY,
 	PURCHASE_URL,
 	SUITE_NAME,
 } from "../product";
 
 export class EffortIndexSettingTab extends PluginSettingTab {
+	/** The in-settings progress row (DESIGN 7.2). Rebuilt with the engine box. */
+	private progressEl: HTMLElement | null = null;
+	/** Guard: display() kicks one async status read, and that read re-displays exactly once. */
+	private statusRequested = false;
+
 	constructor(private plugin: EffortIndexPlugin) {
 		super(plugin.app, plugin);
 	}
@@ -25,10 +41,46 @@ export class EffortIndexSettingTab extends PluginSettingTab {
 
 	display(): void {
 		this.containerEl.empty();
+		this.progressEl = null;
+
 		this.renderLicense();
 		this.renderMeasurement();
 		this.renderReport();
+		this.renderPro();
+		this.renderEngine();
 		this.renderPrivacy();
+
+		// The engine's state lives on disk, so reading it is async and display() is not. Ask once,
+		// then re-render — never in a loop.
+		if (this.plugin.engine && !this.plugin.engineStatus && !this.statusRequested) {
+			this.statusRequested = true;
+			void this.plugin.refreshEngineStatus().then(() => {
+				this.display();
+			});
+		}
+	}
+
+	// --- gating primitives -------------------------------------------------------
+
+	private markPro(setting: Setting): void {
+		setting.nameEl.createSpan({ cls: "effort-index-pro-pill", text: "Pro" });
+	}
+
+	/**
+	 * A Pro row for a free user shows a disabled lock and says what it would do — never an empty
+	 * right-hand side, which reads as a rendering bug rather than as a paywall. It does NOT show
+	 * a purchase button while the till is closed; the Pro card in the License section carries the
+	 * one honest statement about that, and repeating a dead CTA five times is five lies.
+	 */
+	private proRow(name: string, desc: string, render: (setting: Setting) => void): void {
+		const setting = new Setting(this.containerEl).setName(name).setDesc(desc);
+		this.markPro(setting);
+		if (!this.plugin.settings.isPro) {
+			setting.settingEl.addClass("effort-index-setting-locked");
+			setting.addExtraButton((button) => button.setIcon("lock").setDisabled(true).setTooltip("Pro feature"));
+			return;
+		}
+		render(setting);
 	}
 
 	// --- License (DESIGN 4.5) ----------------------------------------------------
@@ -80,11 +132,18 @@ export class EffortIndexSettingTab extends PluginSettingTab {
 	}
 
 	/**
-	 * The upgrade card. createDiv/createEl/createSpan only — NEVER innerHTML.
+	 * The Pro card. createDiv/createEl/createSpan only — NEVER innerHTML.
+	 *
+	 * THE BUTTON IS CONDITIONAL, AND THAT IS THE POINT. v1.0.0 shipped a live "$29 — Unlock Pro"
+	 * anchor to a generic BuyMeACoffee handle page, for two features that did not exist and an
+	 * `isPro` flag that gated nothing: a buyer would have paid, waited for a hand-emailed key,
+	 * pasted it, seen "Pro active", and observed no change whatsoever. The features are now built
+	 * — but the checkout still is not, so the card names what Pro does and says plainly that
+	 * there is nothing to buy yet. A CTA appears the moment `PURCHASE_URL` is a real one, and not
+	 * a keystroke before (see product.ts — it is one edit).
 	 *
 	 * The title is a styled DIV, not an <h4>: `settings-tab/no-manual-html-headings` bans raw
-	 * heading elements in a settings tab (headings must come from `Setting.setHeading()`), and a
-	 * Setting row is the wrong shape for a card.
+	 * heading elements in a settings tab, and a Setting row is the wrong shape for a card.
 	 */
 	private renderProCard(): void {
 		const card = this.containerEl.createDiv({ cls: "effort-index-pro-card" });
@@ -96,8 +155,13 @@ export class EffortIndexSettingTab extends PluginSettingTab {
 			list.createEl("li", { text: FEATURES[key].label });
 		}
 
-		// An anchor, not window.open — Obsidian routes it to the OS on desktop and mobile.
-		createExternalLink(card, { cls: "effort-index-pro-btn", text: "Unlock Pro", url: PURCHASE_URL });
+		if (CHECKOUT_OPEN && PURCHASE_URL) {
+			// An anchor, not window.open — Obsidian routes it to the OS on desktop and mobile.
+			createExternalLink(card, { cls: "effort-index-pro-btn", text: "Unlock Pro", url: PURCHASE_URL });
+			return;
+		}
+
+		card.createEl("p", { cls: "effort-index-pro-pending", text: PURCHASE_PENDING_COPY });
 	}
 
 	// --- Measurement --------------------------------------------------------------
@@ -208,6 +272,275 @@ export class EffortIndexSettingTab extends PluginSettingTab {
 				button.setButtonText("Open").onClick(() => {
 					void this.plugin.activateView();
 				})
+			);
+	}
+
+	// --- Pro features -----------------------------------------------------------------
+
+	private renderPro(): void {
+		const heading = new Setting(this.containerEl).setName("Pro features").setHeading();
+		this.markPro(heading);
+
+		this.containerEl.createEl("p", {
+			cls: "effort-index-hint",
+			text:
+				"Both compare notes by MEANING, not by keyword, so both need the local semantic engine " +
+				"below. Neither one sends anything over the network, and neither runs until you ask it to. " +
+				"They live in the “Orphaned” and “By topic” tabs of the expensive-notes panel.",
+		});
+
+		this.proRow(
+			FEATURES.orphanedInvestment.label,
+			"A note is orphaned when its closest counterpart anywhere else in your vault is below this " +
+				"similarity: the hours went in and the ideas never came out. 0.45 is where a sentence " +
+				"embedding stops calling two passages related at all — raise it to be told about more notes, " +
+				"lower it to be told only about the truly isolated ones.",
+			(setting) => {
+				setting.addSlider((slider) =>
+					slider
+						.setLimits(0.2, 0.8, 0.01)
+						.setValue(this.plugin.settings.orphanMaxScore)
+						.setDynamicTooltip()
+						.onChange((value) => {
+							this.plugin.settings.orphanMaxScore = value;
+							this.plugin.queueSave();
+						})
+				);
+			}
+		);
+
+		this.proRow(
+			FEATURES.effortClusters.label,
+			"How close two expensive notes must be to land in the same topic. Below about 0.5, notes that " +
+				"merely share a vocabulary start grouping, and every topic becomes “everything”.",
+			(setting) => {
+				setting.addSlider((slider) =>
+					slider
+						.setLimits(0.4, 0.9, 0.01)
+						.setValue(this.plugin.settings.clusterMinScore)
+						.setDynamicTooltip()
+						.onChange((value) => {
+							this.plugin.settings.clusterMinScore = value;
+							this.plugin.queueSave();
+						})
+				);
+			}
+		);
+
+		this.proRow(
+			"Notes per scan",
+			"How many of your most expensive notes a semantic scan looks at. Each one is a round trip to " +
+				"the engine, so this is the difference between a report and a coffee break. The report always " +
+				"says how many it actually analysed.",
+			(setting) => {
+				setting.addSlider((slider) =>
+					slider
+						.setLimits(MIN_SCAN_LIMIT, MAX_SCAN_LIMIT, 5)
+						.setValue(this.plugin.settings.scanLimit)
+						.setDynamicTooltip()
+						.onChange((value) => {
+							this.plugin.settings.scanLimit = value;
+							this.plugin.queueSave();
+						})
+				);
+			}
+		);
+	}
+
+	// --- Semantic engine (DESIGN 7.2) -------------------------------------------------
+
+	private renderEngine(): void {
+		new Setting(this.containerEl).setName("Semantic engine").setHeading();
+
+		const host = this.plugin.engine;
+		const box = this.containerEl.createDiv({ cls: "effort-index-engine" });
+
+		if (!host || !host.desktop) {
+			box.createEl("p", {
+				text:
+					"The semantic engine runs on desktop only. Everything else in this add-on — the " +
+					"measurement, the expensive-notes list, and the CSV export — works here.",
+			});
+			return;
+		}
+
+		box.createEl("p", {
+			text:
+				"The Pro features need a local engine: a self-contained program that runs on your computer, " +
+				`reads only the text this add-on sends it, and opens no network connections. It is ${DOWNLOAD_SIZE_LABEL}, ` +
+				"and it installs outside your vault, in your system's application-data folder.",
+		});
+
+		this.progressEl = box.createDiv({ cls: "effort-index-engine-progress" });
+
+		const status = this.plugin.engineStatus;
+		const installed = status?.installed ?? null;
+		const byo = status?.byoPath ?? false;
+
+		if (installed || byo) this.renderInstalledEngine(box, byo);
+		else this.renderDownloadRow(box);
+
+		// The fallback path, and the honest answer to "is the download the mechanism?". It is not:
+		// it is a convenience, and this setting is what makes that true. It is also the fix for
+		// every Defender quarantine, noexec mount, Flatpak confinement and hostile Gatekeeper.
+		new Setting(box)
+			.setName("Path to an existing engine")
+			.setDesc("Absolute path to an engine binary you already have. When this is set, nothing is ever downloaded.")
+			.addText((text) =>
+				text
+					.setPlaceholder("/path/to/embed-sidecar")
+					.setValue(this.plugin.settings.enginePath)
+					.onChange((value) => {
+						this.plugin.settings.enginePath = value.trim();
+						this.plugin.queueSave();
+					})
+			);
+
+		new Setting(box)
+			.setName("Test engine")
+			.setDesc("Starts the engine that is already installed and asks it for its version. Nothing is downloaded.")
+			.addButton((button) =>
+				button.setButtonText("Test engine").onClick(async () => {
+					button.setDisabled(true);
+					try {
+						const result = await this.plugin.testEngine();
+						new Notice(
+							result.health
+								? `Engine ready — ${result.health.model}, ${String(result.health.dim)}-dim.`
+								: `Engine ${result.state}. ${result.error ?? "No engine is installed."}`
+						);
+					} finally {
+						button.setDisabled(false);
+						this.display();
+					}
+				})
+			);
+
+		new Setting(box)
+			.setName("Engine log")
+			.setDesc("The last 200 lines the engine wrote to its error stream.")
+			.addButton((button) =>
+				button.setButtonText("Engine log").onClick(() => {
+					new EngineLogModal(this.app, host.engineLog()).open();
+				})
+			);
+	}
+
+	/** "Not installed": one button, and it opens the consent modal. It does NOT download. */
+	private renderDownloadRow(box: HTMLElement): void {
+		const blocked = engineInstallBlockedReason(this.plugin);
+		const setting = new Setting(box)
+			.setName("Download engine")
+			.setDesc(
+				blocked ??
+					`Downloads engine ${ENGINE_VERSION}, verifies its SHA-256, and runs it. You will be shown the exact ` +
+						"URL, version, checksum and install path before anything is downloaded."
+			);
+
+		setting.addButton((button) => {
+			button.setButtonText("Download engine").setCta();
+			// A build whose checksum is still the unpinned placeholder REFUSES to download — there
+			// would be nothing to verify the bytes against, and downloading an unverified executable
+			// is the single thing this whole design exists to prevent. An enabled button that always
+			// fails would be worse than the truth.
+			if (!canInstallEngine(this.plugin)) {
+				button.setDisabled(true);
+				if (!ENGINE_RELEASE_PINNED) button.setTooltip("Not available in this release.");
+				return;
+			}
+			button.onClick(() => {
+				offerEngineInstall(this.plugin, {
+					onProgress: (line) => this.progressEl?.setText(line),
+					onDone: () => {
+						this.display();
+					},
+				});
+			});
+		});
+	}
+
+	/** "Installed": what is there, and everything you can do to it — including remove it. */
+	private renderInstalledEngine(box: HTMLElement, byo: boolean): void {
+		const status = this.plugin.engineStatus;
+		const installed = status?.installed ?? null;
+
+		const info = new Setting(box).setName("Installed engine");
+		if (byo) {
+			info.setDesc(
+				`Using the engine you pointed at: ${this.plugin.settings.enginePath}. Nothing was downloaded, and nothing will be.`
+			);
+		} else if (installed) {
+			info.setDesc(`Version ${installed.version} · ${installed.target} · installed at ${installed.exePath}`);
+		}
+
+		if (status?.updateAvailable && !byo) {
+			// NEVER a silent update. Obsidian policy bans "a mechanism that updates the plugin", and a
+			// binary that re-downloads itself is arguably exactly that. We detect, and we offer.
+			new Setting(box)
+				.setName("Update engine")
+				.setDesc(
+					`This add-on expects engine ${ENGINE_VERSION}; ${installed?.version ?? "an older version"} is installed. ` +
+						"Nothing updates on its own — you will see the URL, checksum and path first."
+				)
+				.addButton((button) =>
+					button
+						.setButtonText("Update engine")
+						.setCta()
+						.setDisabled(!canInstallEngine(this.plugin))
+						.onClick(() => {
+							offerEngineInstall(this.plugin, {
+								onProgress: (line) => this.progressEl?.setText(line),
+								onDone: () => {
+									this.display();
+								},
+							});
+						})
+				);
+		}
+
+		new Setting(box)
+			.setName("Rebuild the note index")
+			.setDesc(
+				"Re-embeds every note so the semantic reports have something to compare against. The engine " +
+					"skips text it already holds, so this is fast the second time — and it is shared with the " +
+					"other Second Read add-ons rather than duplicated."
+			)
+			.addButton((button) =>
+				button.setButtonText("Rebuild index").onClick(async () => {
+					button.setDisabled(true);
+					try {
+						const count = await this.plugin.rebuildEngineIndex((done, total) => {
+							this.progressEl?.setText(`Indexing… ${String(done)} / ${String(total)}`);
+						});
+						new Notice(`Indexed ${String(count)} note${count === 1 ? "" : "s"}.`);
+					} catch (error) {
+						new Notice(error instanceof Error ? error.message : "Could not rebuild the index.");
+					} finally {
+						button.setDisabled(false);
+						this.progressEl?.setText("");
+					}
+				})
+			);
+
+		new Setting(box)
+			.setName("Remove engine")
+			.setDesc("Stops the engine and deletes the program. Your notes and the index are kept.")
+			.addButton((button) =>
+				button
+					.setButtonText("Remove engine")
+					.setWarning()
+					.setDisabled(byo)
+					.onClick(async () => {
+						button.setDisabled(true);
+						try {
+							await this.plugin.removeEngine();
+							new Notice("The engine was removed. The index was kept.");
+						} catch (error) {
+							new Notice(error instanceof Error ? error.message : "Could not remove the engine.");
+						} finally {
+							this.display();
+						}
+					})
 			);
 	}
 

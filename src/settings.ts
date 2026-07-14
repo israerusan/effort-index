@@ -4,6 +4,8 @@ import {
 	DEFAULT_MIN_SESSION_MS,
 } from "./core/effortTimer.mjs";
 import { DEFAULT_STALE_DAYS } from "./core/expensive.mjs";
+import { DEFAULT_ORPHAN_MAX_SCORE } from "./core/orphaned.mjs";
+import { DEFAULT_CLUSTER_MIN_SCORE } from "./core/clusters.mjs";
 import {
 	DEFAULT_RETENTION_MS,
 	DEFAULT_REVISION_GAP_MS,
@@ -39,6 +41,33 @@ export interface EffortIndexSettings {
 	/** Notes under these folders are neither tracked nor reported. */
 	excludeFolders: string[];
 
+	// --- Pro (semantic) --------------------------------------------------------------
+	//
+	// These three are inert for a free user. They are NOT the gate — `isPro` is, through
+	// `featureGates.isFeatureEnabled` — they are just the knobs the gated features read.
+
+	/**
+	 * A note is orphaned investment when its best non-self similarity is BELOW this
+	 * (DESIGN 6.5: 0.45 — the point where MiniLM stops calling two English passages related).
+	 */
+	orphanMaxScore: number;
+	/** Two expensive notes join one topic at or above this. 0.60 is the top of "related". */
+	clusterMinScore: number;
+	/**
+	 * How many of the most expensive notes a semantic scan looks at. Each one is a round trip
+	 * to the engine, so this is the difference between a report and a coffee break — and the
+	 * report says how many it analysed, so the number is never hidden from the user.
+	 */
+	scanLimit: number;
+
+	/**
+	 * Absolute path to an engine binary the user already has. When set, NOTHING is ever
+	 * downloaded. This is the documented fallback for Defender quarantine, `noexec` mounts,
+	 * Flatpak confinement and a hostile Gatekeeper — and it is the honest answer to a reviewer
+	 * asking whether the download is the mechanism or a convenience.
+	 */
+	enginePath: string;
+
 	/**
 	 * This plugin's shard id in the shared signals log. Generated once, then never changed —
 	 * changing it orphans every event this install has ever written.
@@ -47,6 +76,16 @@ export interface EffortIndexSettings {
 
 	schemaVersion: number;
 }
+
+/**
+ * The most expensive N notes a semantic scan looks at. One engine round trip each, so this is
+ * the knob between "a report" and "a coffee break". Declared BEFORE DEFAULT_SETTINGS, which
+ * reads it at module load — a `const` referenced before its declaration is a TDZ crash, not a
+ * hoist.
+ */
+export const DEFAULT_SCAN_LIMIT = 40;
+export const MIN_SCAN_LIMIT = 10;
+export const MAX_SCAN_LIMIT = 200;
 
 export const DEFAULT_SETTINGS: EffortIndexSettings = {
 	licenseKey: "",
@@ -60,6 +99,11 @@ export const DEFAULT_SETTINGS: EffortIndexSettings = {
 	staleDays: DEFAULT_STALE_DAYS,
 	retentionDays: DEFAULT_RETENTION_MS / (24 * 60 * 60 * 1000),
 	excludeFolders: [],
+
+	orphanMaxScore: DEFAULT_ORPHAN_MAX_SCORE,
+	clusterMinScore: DEFAULT_CLUSTER_MIN_SCORE,
+	scanLimit: DEFAULT_SCAN_LIMIT,
+	enginePath: "",
 
 	signalsWriterId: "",
 
@@ -102,6 +146,16 @@ export function coerceSettings(loaded: unknown): EffortIndexSettings {
 		retentionDays: coerceNumber(merged.retentionDays, DEFAULT_SETTINGS.retentionDays),
 		excludeFolders: coerceStringArray(merged.excludeFolders),
 
+		// A similarity is a cosine, so it is meaningless outside 0..1 — a hand-edited 40 (someone
+		// thinking in percent) would make EVERY note orphaned, which is the worst false positive
+		// this add-on can produce. Clamp rather than trust.
+		orphanMaxScore: clamp(coerceNumber(merged.orphanMaxScore, DEFAULT_SETTINGS.orphanMaxScore), 0, 1),
+		clusterMinScore: clamp(coerceNumber(merged.clusterMinScore, DEFAULT_SETTINGS.clusterMinScore), 0, 1),
+		scanLimit: Math.round(
+			clamp(coerceNumber(merged.scanLimit, DEFAULT_SETTINGS.scanLimit), MIN_SCAN_LIMIT, MAX_SCAN_LIMIT)
+		),
+		enginePath: coerceString(merged.enginePath).trim(),
+
 		signalsWriterId: coerceString(merged.signalsWriterId),
 
 		schemaVersion: coerceNumber(merged.schemaVersion, DEFAULT_SETTINGS.schemaVersion),
@@ -122,6 +176,10 @@ function coerceNumber(value: unknown, fallback: number): number {
 function coerceStringArray(value: unknown): string[] {
 	if (!Array.isArray(value)) return [];
 	return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function clamp(value: number, min: number, max: number): number {
+	return Math.min(max, Math.max(min, value));
 }
 
 export interface TimingOptions {
