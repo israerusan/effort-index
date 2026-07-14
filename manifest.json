@@ -1,0 +1,11 @@
+{
+  "id": "effort-index",
+  "name": "Effort Index",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Measure the editing time and revision effort behind every note, then resurface the expensive ones you stopped reading.",
+  "author": "Israel Avila",
+  "authorUrl": "https://github.com/israerusan",
+  "fundingUrl": "https://buymeacoffee.com/vaultspotlight",
+  "isDesktopOnly": false
+}

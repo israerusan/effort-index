@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"baseUrl": ".",
+		"inlineSourceMap": true,
+		"inlineSources": true,
+		"module": "ESNext",
+		"target": "ES6",
+		"allowJs": true,
+		"moduleResolution": "node",
+		"isolatedModules": true,
+		"strict": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"lib": ["DOM", "ES2020"]
+	},
+	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.d.mts"]
+}

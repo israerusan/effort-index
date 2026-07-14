@@ -1,0 +1,18 @@
+node_modules/
+main.js
+*.js.map
+.DS_Store
+test/.build/
+
+# Round-table review transcripts — local tooling artifact, never part of the source.
+.roundtable/
+*.diff
+
+# Engine archives — never checked in.
+*.zip
+
+# License signing key. It does NOT exist in this repo and must never be created here:
+# the ONE Second Read suite key is minted only in obsidian-plugin-core. This line is a
+# tripwire, not a convenience.
+scripts/.license-private.key
+scripts/*.key

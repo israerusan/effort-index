@@ -1,0 +1,155 @@
+/*
+ * Effort Index — every pixel of styling lives here.
+ *
+ * No `el.style.x = ...` anywhere in src/ (the `no-static-styles-assignment` review rule),
+ * and no injected <style> element (`no-forbidden-elements`). Colours come from Obsidian's
+ * own theme variables, so this follows the user's theme instead of fighting it.
+ */
+
+.effort-index-view {
+	--ei-gap: 8px;
+	--ei-row-gap: 4px;
+	padding: 0 12px 12px;
+}
+
+/* --- the expensive-notes list ------------------------------------------------------- */
+
+.effort-index-header h3 {
+	margin-bottom: 2px;
+}
+
+.effort-index-subtitle {
+	margin-top: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.effort-index-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.5;
+}
+
+.effort-index-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--ei-gap);
+}
+
+.effort-index-row {
+	display: flex;
+	flex-direction: column;
+	gap: var(--ei-row-gap);
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.effort-index-row:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.effort-index-title {
+	font-weight: var(--font-semibold);
+	line-height: 1.3;
+}
+
+.effort-index-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.effort-index-time {
+	color: var(--text-accent);
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--font-semibold);
+}
+
+.effort-index-revisions,
+.effort-index-coldness {
+	font-variant-numeric: tabular-nums;
+}
+
+.effort-index-path {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	overflow-wrap: anywhere;
+}
+
+/* --- settings: license + the Pro card ------------------------------------------------ */
+
+.effort-index-license-input {
+	width: 100%;
+	font-family: var(--font-monospace);
+	resize: vertical;
+}
+
+.effort-index-license-status {
+	margin: 0 0 12px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.5;
+}
+
+.effort-index-license-status.is-pro {
+	color: var(--text-success);
+}
+
+.effort-index-license-error {
+	color: var(--text-error);
+}
+
+.effort-index-pro-card {
+	margin: 0 0 20px;
+	padding: 14px 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+}
+
+.effort-index-pro-title {
+	margin: 0 0 6px;
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-bold);
+}
+
+.effort-index-pro-tagline {
+	margin: 0 0 8px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.5;
+}
+
+.effort-index-pro-list {
+	margin: 0 0 12px;
+	padding-left: 20px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.6;
+}
+
+.effort-index-pro-btn {
+	display: inline-block;
+	padding: 6px 14px;
+	border-radius: var(--radius-s);
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	text-decoration: none;
+}
+
+.effort-index-pro-btn:hover {
+	background-color: var(--interactive-accent-hover);
+	color: var(--text-on-accent);
+}
+
+/* --- the confirm modal ---------------------------------------------------------------- */
+
+.effort-index-confirm-body {
+	line-height: 1.5;
+}
