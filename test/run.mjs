@@ -5,7 +5,10 @@
 import esbuild from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { pathToFileURL, fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
 
 // The shared license verifier decodes base64 with atob(), which the browser has and
 // older Node did not. Node 16+ ships it globally; this keeps the suite honest on any
@@ -38,7 +41,17 @@ for (const file of tsTests) {
       obsidian: path.join(testDir, "obsidian-stub.ts"),
     },
   });
-  await import(pathToFileURL(outfile).href);
+  // A .test.ts CANNOT use top-level await (esbuild's CJS output rejects it, which is the same
+  // invariant main.js lives under), so an async test exports the promise its body returns as
+  // `done` and THIS is what waits for it. Two things depend on that wait:
+  //   - a rejected assertion has to fail the suite, not print after the runner said "ok";
+  //   - the writer election lives on a GLOBAL registry shared by every bundle in this process,
+  //     so two async tests running interleaved would elect writers into each other's registry
+  //     and steal each other's slots. The suite must be strictly sequential.
+  // `require` (not `import`) because the module is CJS and this reads its exports object
+  // directly, with no ESM named-export detection to get in the way.
+  const mod = require(outfile);
+  if (typeof mod?.done?.then === "function") await mod.done;
   console.log(`ok  ${file}`);
 }
 

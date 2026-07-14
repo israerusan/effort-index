@@ -39,4 +39,25 @@ assert.ok(/^\d+\.\d+\.\d+$/.test(manifest.version), "manifest.version must be x.
 assert.equal(manifest.version, pkg.version, "manifest.json and package.json versions must match");
 assert.ok(versions[manifest.version], `versions.json must contain an entry for ${manifest.version}`);
 
+// --- the obsidian-releases entry ------------------------------------------------------------
+// community-plugins.json is the block that gets pasted into obsidian-releases. Every field in
+// it is checked against the manifest by a human reviewer, and a disagreement is a review
+// finding on its own: the entry shipped `"author": "saiken"` against a manifest that says
+// "Israel Avila". Two names for one plugin is exactly what the check is looking for.
+const community = JSON.parse(fs.readFileSync(path.join(root, "community-plugins.json"), "utf8"));
+assert.ok(Array.isArray(community) && community.length === 1, "community-plugins.json is a one-entry array");
+const entry = community[0];
+for (const key of ["id", "name", "description", "author"]) {
+	assert.equal(
+		entry[key],
+		manifest[key],
+		`community-plugins.json ${key} must be byte-identical to manifest.json ${key}`
+	);
+}
+assert.ok(/^[\w.-]+\/[\w.-]+$/.test(entry.repo), "the entry needs a user/repo");
+assert.ok(
+	manifest.authorUrl.endsWith(`/${entry.repo.split("/")[0]}`),
+	"authorUrl and the release repo must name the same GitHub account"
+);
+
 console.log("ok  manifest-contract.test.mjs");

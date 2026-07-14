@@ -3,7 +3,7 @@
 // user has dragged the note into a second OS window, so a listener on `window` would never
 // fire for the window they are actually typing in.
 import { MarkdownView, TFile } from "obsidian";
-import type { Plugin } from "obsidian";
+import type { Plugin, WorkspaceLeaf } from "obsidian";
 import type { SignalStore } from "../shared/signals/SignalStore";
 import type { SignalEvent } from "../shared/signals/signalsAggregate.d.mts";
 import { forgetPath, initialState, renamePath, step } from "../core/effortTimer.mjs";
@@ -81,12 +81,28 @@ export class EffortTracker {
 		// files. Without this, dwell would keep accruing against the note they navigated away
 		// from — the exact "idle with a file open inflates the score" failure this plugin exists
 		// to avoid.
+		//
+		// BUT: `active-leaf-change` also fires for every leaf that is NOT a note — the file
+		// explorer, the search pane, the graph, and this plugin's OWN "expensive notes" panel.
+		// Dispatching `close` for those (which is what an old build did, because
+		// `getActiveViewOfType(MarkdownView)` returns null when a sidebar leaf is active) ENDED
+		// the editing session: `closeBurst` discards any burst under `minSessionMs` outright, so
+		// typing 4 s, clicking our own panel, and typing 4 s more recorded ZERO seconds instead
+		// of eight. A sidebar click is not the end of a session. It is treated exactly like a
+		// window `blur`: dwell pauses (they are looking at something else), the burst stays open,
+		// and the dead-man `tick` still closes it on the idle rule if they never come back.
 		plugin.registerEvent(
-			workspace.on("active-leaf-change", () => {
+			workspace.on("active-leaf-change", (leaf) => {
 				const now = Date.now();
-				const path = this.activeNotePath();
-				if (path === null) this.dispatch({ k: "close", t: now });
-				else this.dispatch({ k: "focus", path, t: now });
+				const note = leafNote(leaf);
+				if (note === null) {
+					this.dispatch({ k: "blur", t: now });
+					return;
+				}
+				// A real note, but one we do not track (an excluded folder) — the session on the
+				// PREVIOUS note is genuinely over, so close it.
+				if (this.excluded(note.path)) this.dispatch({ k: "close", t: now });
+				else this.dispatch({ k: "focus", path: note.path, t: now });
 			})
 		);
 
@@ -166,4 +182,21 @@ export class EffortTracker {
 		if (this.excluded(file.path)) return null;
 		return file.path;
 	}
+}
+
+/**
+ * The markdown note a leaf holds, or null when the leaf is not a note at all — a sidebar pane,
+ * the graph, a canvas, this plugin's own view, or no leaf.
+ *
+ * `instanceof MarkdownView` rather than `getActiveViewOfType()`: the whole point is to tell
+ * "the user switched to another NOTE" apart from "the user clicked something that is not a
+ * note", and `getActiveViewOfType` collapses both to null. An excluded note is still a note —
+ * the caller decides what to do about it.
+ */
+function leafNote(leaf: WorkspaceLeaf | null): TFile | null {
+	const view = leaf?.view ?? null;
+	if (!(view instanceof MarkdownView)) return null;
+	const file = view.file;
+	if (!(file instanceof TFile) || file.extension !== "md") return null;
+	return file;
 }

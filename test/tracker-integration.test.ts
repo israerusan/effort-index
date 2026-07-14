@@ -202,9 +202,15 @@ async function main(): Promise<void> {
 	assert.ok(index[NOTE].lastOpen > 0, "lastOpen is recorded — this is what Note Decay reads");
 
 	// 4. The single-writer election really happened (this is what stops double-counting when
-	//    Note Decay is installed alongside).
-	assert.ok(SignalsBroker.isWriter("effort-index"), "this plugin claimed the writer slot");
-	assert.equal(SignalsBroker.registry()?.writerPluginId, "effort-index");
+	//    Note Decay is installed alongside). The slot is PER KIND — see writer-election.test.ts
+	//    for the two-plugin case; here we only assert this plugin owns the kinds it emits.
+	assert.ok(SignalsBroker.isWriter("effort-index"), "this plugin claimed a writer slot");
+	assert.deepEqual(
+		SignalsBroker.kindsOwnedBy("effort-index"),
+		["edit", "open"],
+		"it claims exactly the kinds it has actually emitted — nothing pre-emptively"
+	);
+	assert.ok(SignalsBroker.isWriterFor("effort-index", "edit"), "`edit` is ours: nobody else emits it");
 
 	// 5. An excluded folder is never recorded at all.
 	const template = new TFile("Templates/Daily.md");
@@ -228,29 +234,19 @@ async function main(): Promise<void> {
 	// 6. onunload's release lets a surviving Second Read plugin take over the log.
 	store.dispose();
 	SignalsBroker.releaseIfOwner("effort-index");
-	assert.equal(SignalsBroker.isWriter("effort-index"), false, "the writer slot is released on unload");
-	assert.equal(SignalsBroker.registry(), null);
+	assert.equal(SignalsBroker.isWriter("effort-index"), false, "every writer slot is released on unload");
+	assert.deepEqual(SignalsBroker.kindsOwnedBy("effort-index"), []);
+	assert.equal(SignalsBroker.registry(), null, "and the global goes with the last owner");
 
 	Date.now = realNow;
 }
 
 // NOT top-level await: esbuild's CJS output rejects it outright (the same invariant main.js
-// lives under). So the async body is kicked off and its completion is GUARDED — an async test
-// that is never awaited would otherwise "pass" by never running a single assertion.
-let completed = false;
-process.on("exit", (code) => {
-	if (code === 0 && !completed) {
-		console.error("tracker-integration: main() never completed — the assertions did not run");
-		process.exitCode = 1;
-	}
+// lives under). So the async body is kicked off and the promise is EXPORTED — test/run.mjs
+// awaits `done` before it loads the next test. An async test that nobody awaited would
+// otherwise "pass" by never running a single assertion, and would run interleaved with the
+// next test against the same global writer registry.
+export const done = main().then(undefined, (error: unknown) => {
+	console.error(error);
+	process.exit(1);
 });
-
-void main().then(
-	() => {
-		completed = true;
-	},
-	(error: unknown) => {
-		console.error(error);
-		process.exit(1);
-	}
-);

@@ -5,7 +5,7 @@ import { SignalsBroker } from "./shared/signals/SignalsBroker";
 import type { SignalsIndex } from "./shared/signals/signalsAggregate.d.mts";
 import { LicenseManager } from "./license/LicenseManager";
 import { EffortTracker } from "./signals/EffortTracker";
-import { DEFAULT_SETTINGS, timingOptions, type EffortIndexSettings } from "./settings";
+import { DEFAULT_SETTINGS, coerceSettings, timingOptions, type EffortIndexSettings } from "./settings";
 import { EffortIndexSettingTab } from "./ui/SettingsTab";
 import { EffortView, VIEW_TYPE_EFFORT } from "./ui/EffortView";
 import { registerCommands } from "./commands";
@@ -75,19 +75,14 @@ export default class EffortIndexPlugin extends Plugin {
 	// --- settings -------------------------------------------------------------
 
 	async loadSettings(): Promise<void> {
-		const loaded: unknown = await this.loadData();
-		const data = (loaded ?? {}) as Record<string, unknown>;
-		// A hostile or corrupt data.json must not reach the prototype chain and forge `isPro`
-		// onto every object in the runtime.
-		if (Object.prototype.hasOwnProperty.call(data, "__proto__")) delete data["__proto__"];
-
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
-		this.settings.excludeFolders = coerceStringArray(this.settings.excludeFolders);
-		this.settings.isPro = this.settings.isPro === true;
+		// EVERY field is coerced back to its declared type: data.json is a file on disk that a
+		// hand edit, a sync merge or an older build can leave in any shape at all, and a
+		// `licenseKey` that came back as a number used to crash `onload()` outright.
+		this.settings = coerceSettings(await this.loadData());
 
 		// The shard id is minted once and then never changes: it names this install's file in
 		// the shared log, and a new id would orphan every event already written.
-		if (typeof this.settings.signalsWriterId !== "string" || this.settings.signalsWriterId === "") {
+		if (this.settings.signalsWriterId === "") {
 			this.settings.signalsWriterId = newWriterId();
 			await this.saveData(this.settings);
 		}
@@ -177,9 +172,4 @@ export default class EffortIndexPlugin extends Plugin {
 		await this.signals.clear();
 		this.refreshViews();
 	}
-}
-
-function coerceStringArray(value: unknown): string[] {
-	if (!Array.isArray(value)) return [];
-	return value.filter((entry): entry is string => typeof entry === "string");
 }

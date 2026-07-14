@@ -163,4 +163,44 @@ assert.equal(formatDuration(2 * 3600_000 + 14 * 60_000), "2h 14m");
 	assert.ok(csv.endsWith("\n"));
 }
 
+// --- CSV injection --------------------------------------------------------------------------------
+// A note path is a FILENAME, and every one of these is a legal one. Excel, LibreOffice, Sheets
+// and Numbers evaluate a cell that starts with = + - @ (or a leading tab/CR, which they strip
+// first) as a FORMULA — so an unescaped export hands the user's spreadsheet a live command the
+// moment they double-click the file they just exported from their own note titles.
+{
+	const dangerous = [
+		`=cmd|'/c calc'!A1.md`,
+		`+1+1.md`,
+		`-2+3.md`,
+		`@SUM(A1).md`,
+		`\tleading-tab.md`,
+		`\rleading-cr.md`,
+	];
+	const index = {};
+	for (const path of dangerous) index[path] = note({ editMs: 60_000, lastOpen: NOW - 200 * DAY });
+
+	const rows = selectExpensiveNotes(index, { now: NOW, staleDays: 90 });
+	assert.equal(rows.length, dangerous.length, "all of them are legal note paths and all are exported");
+
+	const lines = toCsv(rows).trim().split("\n").slice(1);
+	assert.equal(lines.length, dangerous.length);
+	for (const line of lines) {
+		assert.ok(
+			line.startsWith(`"'`),
+			`a formula cell must be neutralised with a leading apostrophe, got: ${line}`
+		);
+		assert.ok(
+			!/^[=+\-@\t\r]/.test(line),
+			`the cell must not begin with a formula trigger, got: ${line}`
+		);
+	}
+	// The path is still READABLE — the apostrophe is the escape, not a mangling of the data.
+	assert.ok(lines.some((line) => line.includes(`=cmd|'/c calc'!A1.md`)), "the real path survives verbatim");
+
+	// ...and an ordinary path is left completely alone.
+	const plain = toCsv(selectExpensiveNotes({ "Projects/Roadmap.md": note({ editMs: 60_000, lastOpen: NOW - 200 * DAY }) }, { now: NOW, staleDays: 90 }));
+	assert.ok(plain.split("\n")[1].startsWith("Projects/Roadmap.md,60000"), "a normal path is not quoted or prefixed");
+}
+
 console.log("ok  expensive-query.test.mjs");

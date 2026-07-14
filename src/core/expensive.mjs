@@ -135,9 +135,22 @@ export function formatColdness(days) {
 	return `${days} days ago`;
 }
 
+/**
+ * Excel, LibreOffice, Sheets and Numbers all treat a cell that STARTS with `= + - @` (or a
+ * leading tab/CR, which they strip before looking) as a formula, not as text. A note called
+ * `=cmd|'/c calc'!A1.md` is a legal filename, and exporting it unescaped hands the user's
+ * spreadsheet a live formula the moment they double-click the CSV — the classic CSV-injection
+ * shape, in a file the user believes is a list of their own note names.
+ *
+ * The fix is the OWASP one: prefix the cell with an apostrophe, which every one of those
+ * programs reads as "the rest of this is literally text", and then quote it so the apostrophe
+ * survives as data rather than being eaten by the delimiter rules.
+ */
 function csvCell(value) {
 	const text = String(value ?? "");
-	return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+	const dangerous = /^[=+\-@\t\r]/.test(text);
+	const body = dangerous ? `'${text}` : text;
+	return dangerous || /[",\n]/.test(body) ? `"${body.replace(/"/g, '""')}"` : body;
 }
 
 /** RFC-4180-ish CSV of the selected rows. Pure, so the export is testable without a vault. */

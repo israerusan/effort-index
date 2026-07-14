@@ -66,6 +66,64 @@ export const DEFAULT_SETTINGS: EffortIndexSettings = {
 	schemaVersion: 1,
 };
 
+/**
+ * `data.json` is a file on the user's disk. It is edited by hand, merged by Obsidian Sync,
+ * truncated by a crash, and written by whatever the previous version of this plugin was. So
+ * NOTHING in it is trusted to have the type the interface above promises.
+ *
+ * The rule this exists to enforce: `onload()` must never throw. A `licenseKey` that came back
+ * as a number made `refreshLicense()` call `.trim()` on it and the whole plugin failed to load
+ * with a stack trace — no view, no settings tab, no way for the user to fix the file that broke
+ * it. Every field is coerced back to its declared type here, once, at the single boundary
+ * where untrusted data enters.
+ *
+ * `__proto__` is deleted before the merge: a hostile data.json must not be able to forge
+ * `isPro` onto every object in the runtime.
+ */
+export function coerceSettings(loaded: unknown): EffortIndexSettings {
+	const data: Record<string, unknown> =
+		loaded && typeof loaded === "object" && !Array.isArray(loaded)
+			? { ...(loaded as Record<string, unknown>) }
+			: {};
+	if (Object.prototype.hasOwnProperty.call(data, "__proto__")) delete data["__proto__"];
+
+	const merged = Object.assign({}, DEFAULT_SETTINGS, data) as Record<string, unknown>;
+
+	return {
+		licenseKey: coerceString(merged.licenseKey),
+		isPro: merged.isPro === true,
+		licenseEmail: coerceString(merged.licenseEmail),
+
+		idleCutoffSeconds: coerceNumber(merged.idleCutoffSeconds, DEFAULT_SETTINGS.idleCutoffSeconds),
+		minSessionSeconds: coerceNumber(merged.minSessionSeconds, DEFAULT_SETTINGS.minSessionSeconds),
+		dwellCapMinutes: coerceNumber(merged.dwellCapMinutes, DEFAULT_SETTINGS.dwellCapMinutes),
+		revisionGapMinutes: coerceNumber(merged.revisionGapMinutes, DEFAULT_SETTINGS.revisionGapMinutes),
+		staleDays: coerceNumber(merged.staleDays, DEFAULT_SETTINGS.staleDays),
+		retentionDays: coerceNumber(merged.retentionDays, DEFAULT_SETTINGS.retentionDays),
+		excludeFolders: coerceStringArray(merged.excludeFolders),
+
+		signalsWriterId: coerceString(merged.signalsWriterId),
+
+		schemaVersion: coerceNumber(merged.schemaVersion, DEFAULT_SETTINGS.schemaVersion),
+	};
+}
+
+/** A non-string (number, null, object) becomes "" — never `String(value)`, which would turn a
+ *  corrupt `licenseKey: 42` into the key "42" and then report it as invalid rather than absent. */
+function coerceString(value: unknown): string {
+	return typeof value === "string" ? value : "";
+}
+
+/** NaN and Infinity are not numbers a slider can render or a timer can wait for. */
+function coerceNumber(value: unknown, fallback: number): number {
+	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function coerceStringArray(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter((entry): entry is string => typeof entry === "string");
+}
+
 export interface TimingOptions {
 	idleCutoffMs: number;
 	minSessionMs: number;

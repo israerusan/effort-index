@@ -2,7 +2,7 @@
   {
     "id": "effort-index",
     "name": "Effort Index",
-    "author": "saiken",
+    "author": "Israel Avila",
     "description": "Measure the editing time and revision effort behind every note, then resurface the expensive ones you stopped reading.",
     "repo": "israerusan/effort-index"
   }
