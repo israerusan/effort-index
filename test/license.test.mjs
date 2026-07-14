@@ -140,4 +140,51 @@ assert.deepEqual([...REVOKED_LICENSE_KEYS], [], "the revocation list ships empty
 assert.equal(isRevoked("anything"), false);
 assert.equal(isRevoked(""), false);
 
+// --- ...and this plugin does not own a second copy of that decision -----------------------------
+//
+// `verifySuiteLicense` is, in its own words, "THE ONE FUNCTION THAT DECIDES WHETHER A KEY UNLOCKS
+// PRO. Every plugin calls this and nothing else." It exists because the composition below it —
+// revocation, THEN signature — was hand-copied into five LicenseManager.ts files that no test, no
+// linter and no drift check ever compared. This repo's LicenseManager was still such a copy: it
+// imported isRevoked and verifyLicense and re-derived the composition itself. It was correct, and
+// that is exactly the problem — nothing here would have noticed if it stopped being correct, and a
+// single suite keypair makes the by-value denylist the ONLY revocation mechanism we have.
+//
+// LicenseManager.ts is NOT part of the vendored shared tree, so the MANIFEST.sha256 drift gate
+// cannot see it. This assertion is the gate for this one file. (The behaviour it buys — a revoked
+// key with a genuinely valid signature rejected on the plugin's own verify path — is proved in
+// license-manager.test.ts.)
+{
+	const source = fs.readFileSync(path.join(root, "src/license/LicenseManager.ts"), "utf8");
+	// The file is allowed to TALK about the composition it no longer owns (its header explains
+	// exactly why it must not own it). Only executable code is checked.
+	const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+	assert.match(
+		code,
+		/import\s*\{[^}]*\bverifySuiteLicense\b[^}]*\}\s*from\s*"\.\.\/shared\/suiteLicense\.mjs"/,
+		"LicenseManager must take its decision from the shared verifySuiteLicense"
+	);
+	assert.ok(
+		/\bverify\b[^\n]*=\s*verifySuiteLicense\b/.test(code) || /\bverifySuiteLicense\s*\(/.test(code),
+		"...and `verify` must BE that function — bound to it or calling it — not merely import it"
+	);
+	assert.ok(
+		!/\bisRevoked\b/.test(code),
+		"SECURITY: LicenseManager must not re-implement revocation — that composition lives in suiteLicense.mjs"
+	);
+	assert.ok(
+		!/\bverifyLicense\s*\(/.test(code),
+		"SECURITY: LicenseManager must not call verifyLicense directly — it would be a second, uncompared copy of the decision"
+	);
+	assert.ok(
+		!/\bSUITE_LICENSE_PUBLIC_KEY\b/.test(code),
+		"LicenseManager must not name the public key: choosing which key to trust IS the decision it delegates"
+	);
+	assert.ok(
+		!/from\s*"\.\.\/shared\/revokedLicenses\.mjs"/.test(code),
+		"SECURITY: LicenseManager must not import the denylist at all — it does not get to decide when to consult it"
+	);
+}
+
 console.log("ok  license.test.mjs");
