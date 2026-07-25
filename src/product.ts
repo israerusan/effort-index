@@ -37,7 +37,7 @@ export const PRO_PRICE_LABEL = "$29 one-time";
  * verify a webhook and email a signed key; BMAC cannot). Everything else follows from it, and
  * `pro-card.test.ts` asserts both halves of the switch.
  */
-export const PURCHASE_URL: string | null = null;
+export const PURCHASE_URL: string | null = "https://buymeacoffee.com/vaultspotlight/e/560213";
 
 /** True only when PURCHASE_URL names a real checkout. Nothing else may decide this. */
 export const CHECKOUT_OPEN: boolean = PURCHASE_URL !== null;

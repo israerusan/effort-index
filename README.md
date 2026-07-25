@@ -49,7 +49,7 @@ Free covers everything above, on desktop and mobile, with no engine and no netwo
 
 Both compare notes by *meaning*, so both need the local semantic engine described below. Desktop only. If you have no engine installed, both say so plainly and offer to install one — neither ever returns an empty list you could mistake for "nothing found".
 
-> **Purchasing is not open yet.** There is nothing to buy, no waitlist and no payment link, and the add-on does not show one. The Pro features are built and shipping in this version; they unlock the moment a Second Read key is pasted into settings. If you already have one, it works now.
+> **Second Read Pro — $29 one-time.** One key unlocks Pro in all five Second Read add-ons (Note Decay, Standing Questions, Effort Index, Prior Art, Unwritten). Buy here: https://buymeacoffee.com/vaultspotlight/e/560213 — the key is emailed to you and pasted into settings; it is verified offline.
 
 ## The semantic engine (Pro, desktop only)
 

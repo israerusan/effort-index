@@ -11,12 +11,11 @@
  *
  *   1. THE FEATURES EXIST. `proFeatureKeys(FEATURES)` is not a wish list — every key on it is
  *      reachable from the plugin (see pro-features-exist.test.ts for the command surface).
- *   2. THE TILL IS HONEST. While `PURCHASE_URL` is null there is no checkout, so the card must
- *      not render ANY purchase link — not to BMAC, not to a "coming soon" page, nowhere. It
- *      says what Pro does and that there is nothing to buy yet. The moment PURCHASE_URL names a
- *      real checkout, the button comes back — one edit, asserted below in both directions.
- *
- * Run against the pre-fix build, the first assertion below fails: there IS an anchor.
+ *   2. THE TILL IS HONEST. `PURCHASE_URL` now names the real Second Read checkout
+ *      (buymeacoffee.com/vaultspotlight/e/560213), so the card renders exactly one live
+ *      "Unlock Pro" anchor pointing at it — and no longer shows the "purchasing opens soon"
+ *      pending copy. When PURCHASE_URL was null the button was absent; flipping the constant
+ *      is all it took, and this file asserts the open state in both directions.
  */
 import assert from "node:assert";
 import { FakeEl, Setting } from "./obsidian-stub";
@@ -48,8 +47,7 @@ function tabFor(isPro: boolean): EffortIndexSettingTab {
 
 const anchorsIn = (root: FakeEl): FakeEl[] => root.findAll((el) => el.tag === "a");
 
-// --- 1. NO LIVE PURCHASE CTA WHILE THERE IS NO CHECKOUT ------------------------------------
-// This is the assertion that fails on the shipped build.
+// --- 1. THE LIVE PURCHASE CTA NOW THAT THE SECOND READ CHECKOUT IS OPEN ----------------------
 {
 	const tab = tabFor(false);
 	const root = tab.containerEl as unknown as FakeEl;
@@ -57,23 +55,24 @@ const anchorsIn = (root: FakeEl): FakeEl[] => root.findAll((el) => el.tag === "a
 	const anchors = anchorsIn(root);
 	assert.equal(
 		anchors.length,
-		0,
-		`a free user must be offered NO purchase link while the till is closed — found ${String(
+		1,
+		`a free user is offered exactly one purchase link now that the checkout is open — found ${String(
 			anchors.map((a) => a.attrs.href)
 		)}`
 	);
+	assert.equal(anchors[0]!.attrs.href, PURCHASE_URL, "and the one anchor points at the real checkout");
 
-	assert.equal(PURCHASE_URL, null, "there is no checkout yet — product.ts must say so, not point at a tip jar");
-	assert.equal(CHECKOUT_OPEN, false, "and CHECKOUT_OPEN is derived from it, never set by hand");
+	assert.equal(
+		PURCHASE_URL,
+		"https://buymeacoffee.com/vaultspotlight/e/560213",
+		"product.ts names the real Second Read checkout"
+	);
+	assert.equal(CHECKOUT_OPEN, true, "and CHECKOUT_OPEN is derived from it, never set by hand");
 
 	const text = root.text();
 	assert.ok(
-		!/buymeacoffee/i.test(text),
-		"the settings tab must not mention a checkout that cannot deliver a key"
-	);
-	assert.ok(
-		!/unlock pro/i.test(text),
-		"'Unlock Pro' is a button that takes money. There is nothing to take money for yet."
+		/unlock pro/i.test(text),
+		"the card offers a live 'Unlock Pro' button now that there is something to buy"
 	);
 }
 
@@ -83,7 +82,7 @@ const anchorsIn = (root: FakeEl): FakeEl[] => root.findAll((el) => el.tag === "a
 	const text = root.text();
 
 	assert.ok(/Second Read Pro/.test(text), "the card names the product");
-	assert.ok(text.includes(PURCHASE_PENDING_COPY), "and says, in words, that purchasing is not open yet");
+	assert.ok(!text.includes(PURCHASE_PENDING_COPY), "and no longer says purchasing is closed");
 
 	for (const key of proFeatureKeys(FEATURES)) {
 		assert.ok(

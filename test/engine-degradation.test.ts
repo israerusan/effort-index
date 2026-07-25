@@ -318,7 +318,7 @@ async function run(): Promise<void> {
 		}
 	}
 
-	// --- 9. THE VIEW, free tier: a locked tab and a pitch — with no dead purchase button -----------------
+	// --- 9. THE VIEW, free tier: a locked tab and a pitch — with a live purchase button ------------------
 	{
 		const ctx = context({ isPro: false });
 		const plugin = {
@@ -331,8 +331,14 @@ async function run(): Promise<void> {
 		await view.show("orphans");
 
 		const root = view.contentEl as unknown as FakeEl;
-		assert.equal(root.findAll((el) => el.tag === "a").length, 0, "no purchase link while there is no checkout");
-		assert.match(root.text(), /Purchasing is not open yet/);
+		const anchors = root.findAll((el) => el.tag === "a");
+		assert.equal(anchors.length, 1, "the view offers the Second Read checkout now that it is open");
+		assert.equal(
+			anchors[0]!.attrs.href,
+			"https://buymeacoffee.com/vaultspotlight/e/560213",
+			"and it points at the real checkout"
+		);
+		assert.doesNotMatch(root.text(), /Purchasing is not open yet/);
 		assert.ok(
 			root.find((el) => el.classes.has("effort-index-mode") && el.classes.has("is-locked")),
 			"the Pro tab is visibly locked rather than hidden"

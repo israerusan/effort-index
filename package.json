@@ -1,6 +1,6 @@
 {
   "name": "effort-index",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Measure the editing time and revision effort behind every note, then resurface the expensive ones you stopped reading.",
   "main": "main.js",
   "type": "module",
