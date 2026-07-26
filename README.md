@@ -4,6 +4,11 @@
 
 Your vault does not tell you what anything cost. A note you rewrote seven times over three months looks exactly like a note you pasted in and never touched again. Effort Index measures the difference — and then shows you the notes you paid the most for and have not opened since.
 
+<!-- SCREENSHOT SLOT — drop a real Obsidian capture here to lift conversions.
+     ![The "expensive notes you haven't opened in 90 days" panel, ranked by measured editing time](docs/assets/hero.png)
+     Suggested shot: the expensive-notes sidebar panel ranked by editing time, plus the per-note effort readout. Save as docs/assets/hero.png -->
+
+
 Part of the **Second Read** suite (Note Decay, Standing Questions, Effort Index, Prior Art, Unwritten). Works fully offline. One Pro key unlocks all five.
 
 ---
@@ -49,7 +54,7 @@ Free covers everything above, on desktop and mobile, with no engine and no netwo
 
 Both compare notes by *meaning*, so both need the local semantic engine described below. Desktop only. If you have no engine installed, both say so plainly and offer to install one — neither ever returns an empty list you could mistake for "nothing found".
 
-> **Second Read Pro — $29 one-time.** One key unlocks Pro in all five Second Read add-ons (Note Decay, Standing Questions, Effort Index, Prior Art, Unwritten). Buy here: https://buymeacoffee.com/vaultspotlight/e/560213 — the key is emailed to you and pasted into settings; it is verified offline.
+> **Second Read Pro — $29 one-time.** One key unlocks Pro in all five Second Read add-ons (Note Decay, Standing Questions, Effort Index, Prior Art, Unwritten). Buy here: https://buymeacoffee.com/vaultspotlight/e/560213 — the key is emailed to you **automatically, within seconds** (delivery is fully automated) and pasted into settings; it is verified offline.
 
 ## The semantic engine (Pro, desktop only)
 
