@@ -72,7 +72,9 @@ Source for the engine: [`github.com/israerusan/second-read-engine`](https://gith
 
 ## Install
 
-Not yet in the community directory. To install manually, copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/effort-index/`.
+**Community plugins (recommended):** open **Settings → Community plugins**, search **Effort Index**, and install it — one click, auto-updates.
+
+**Manual install:** copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/effort-index/`.
 
 ## Development
 
