@@ -372,3 +372,11 @@
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 }
+
+/* --- the feedback row ------------------------------------------------------------------ */
+
+.effort-index-feedback-links {
+	display: flex;
+	gap: var(--size-4-3);
+	flex-wrap: wrap;
+}

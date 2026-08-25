@@ -24,6 +24,9 @@ import {
 	SUITE_NAME,
 } from "../product";
 
+/** The only place bug reports and feature requests are tracked. */
+const ISSUES_URL = "https://github.com/israerusan/effort-index/issues";
+
 export class EffortIndexSettingTab extends PluginSettingTab {
 	/** The in-settings progress row (DESIGN 7.2). Rebuilt with the engine box. */
 	private progressEl: HTMLElement | null = null;
@@ -49,6 +52,7 @@ export class EffortIndexSettingTab extends PluginSettingTab {
 		this.renderPro();
 		this.renderEngine();
 		this.renderPrivacy();
+		this.renderFeedback();
 
 		// The engine's state lives on disk, so reading it is async and display() is not. Ask once,
 		// then re-render — never in a loop.
@@ -584,5 +588,28 @@ export class EffortIndexSettingTab extends PluginSettingTab {
 						}).open();
 					})
 			);
+	}
+
+	// --- Feedback -----------------------------------------------------------------
+
+	/** Bug reports and feature requests go to the issue tracker, and nowhere else. */
+	private renderFeedback(): void {
+		new Setting(this.containerEl).setName("Feedback").setHeading();
+
+		const row = new Setting(this.containerEl)
+			.setName("Bugs and feature requests")
+			.setDesc("Issues and ideas are tracked on GitHub. Opens in your browser.");
+
+		// Anchors, not window.open — links.ts is the house rule for outbound links because
+		// Obsidian routes an anchor to the OS browser on desktop AND on mobile.
+		const links = row.controlEl.createDiv({ cls: "effort-index-feedback-links" });
+		createExternalLink(links, {
+			text: "Report a bug",
+			url: `${ISSUES_URL}/new?labels=bug`,
+		});
+		createExternalLink(links, {
+			text: "Request a feature",
+			url: `${ISSUES_URL}/new?labels=enhancement`,
+		});
 	}
 }
